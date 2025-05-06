@@ -13,7 +13,7 @@ import {
   Image as ImageIcon,
   Upload as UploadIcon,
 } from "@mui/icons-material";
-import { createFolder } from "./app/transfer";
+import { createFolder, fetchPath } from "./app/transfer";
 import { useUploadEnqueue } from "./app/transferQueue";
 
 function IconCaptionButton({
@@ -73,34 +73,11 @@ function UploadDrawer({
 }) {
   const uploadEnqueue = useUploadEnqueue();
 
-  const getUniqueFileName = async (fileName: string) => {
-    let base = fileName;
-    let ext = "";
-    const dotIndex = fileName.lastIndexOf(".");
-    if (dotIndex !== -1) {
-      base = fileName.slice(0, dotIndex);
-      ext = fileName.slice(dotIndex);
-    }
-
-    let index = 0;
-    let uniqueName = fileName;
-
-    while (true) {
-      const res = await fetch(`/webdav/${encodeURIComponent(cwd + uniqueName)}`, {
-        method: "HEAD",
-      });
-      if (res.status === 404) break;
-      index++;
-      uniqueName = `${base}${index}${ext}`;
-    }
-
-    return uniqueName;
-  };
-
   const handleUpload = useCallback(
-    (action: string) => () => {
+    (action: string) => async () => {
       const input = document.createElement("input");
       input.type = "file";
+
       switch (action) {
         case "photo":
           input.accept = "image/*";
@@ -113,20 +90,46 @@ function UploadDrawer({
           input.accept = "*/*";
           break;
       }
+
       input.multiple = true;
 
       input.onchange = async () => {
         if (!input.files) return;
-        const files = Array.from(input.files);
 
-        const processedFiles = await Promise.all(
-          files.map(async (file) => {
-            const uniqueName = await getUniqueFileName(file.name);
-            return new File([file], uniqueName, { type: file.type });
-          })
+        const existingFiles = (await fetchPath(cwd)).map((f) =>
+          f.key.split("/").pop()!
         );
 
-        uploadEnqueue(...processedFiles.map((file) => ({ file, basedir: cwd })));
+        const getUniqueFileName = (filename: string, existing: string[]): string => {
+          if (!existing.includes(filename)) return filename;
+
+          const extIndex = filename.lastIndexOf(".");
+          const base = extIndex === -1 ? filename : filename.slice(0, extIndex);
+          const ext = extIndex === -1 ? "" : filename.slice(extIndex);
+
+          let counter = 1;
+          let newName = `${base}${counter}${ext}`;
+          while (existing.includes(newName)) {
+            counter++;
+            newName = `${base}${counter}${ext}`;
+          }
+
+          return newName;
+        };
+
+        const files: File[] = [];
+
+        for (const file of Array.from(input.files)) {
+          const uniqueName = getUniqueFileName(file.name, existingFiles);
+          if (uniqueName !== file.name) {
+            const renamedFile = new File([file], uniqueName, { type: file.type });
+            files.push(renamedFile);
+          } else {
+            files.push(file);
+          }
+        }
+
+        uploadEnqueue(...files.map((file) => ({ file, basedir: cwd })));
         setOpen(false);
         onUpload();
       };
