@@ -10,7 +10,7 @@ import {
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import { useUploadEnqueue } from "./app/transferQueue";
-import { fetchPath } from "./app/transfer"; // <-- Make sure this import exists
+import { fetchPath } from "./app/transfer"; // Already in Main.tsx
 
 interface TextPadDrawerProps {
   open: boolean;
@@ -30,32 +30,39 @@ const TextPadDrawer: React.FC<TextPadDrawerProps> = ({
   const [existingFileNames, setExistingFileNames] = useState<string[]>([]);
   const uploadEnqueue = useUploadEnqueue();
 
+  // Fetch existing file names on open
   useEffect(() => {
     if (open) {
       fetchPath(cwd).then((files) => {
-        const names = files.map((file) => file.key.split("/").pop() || "");
+        const names = files.map((file) => file.key.split("/").pop()?.toLowerCase() || "");
         setExistingFileNames(names);
       });
     }
   }, [open, cwd]);
 
   const generateUniqueFileName = (baseName: string): string => {
-    const [name, ext] = baseName.split(/\.(?=[^\.]+$)/);
-    let newName = baseName;
+    const lowerBaseName = baseName.toLowerCase();
+    const dotIndex = lowerBaseName.lastIndexOf(".");
+    const base = dotIndex !== -1 ? lowerBaseName.slice(0, dotIndex) : lowerBaseName;
+    const ext = dotIndex !== -1 ? lowerBaseName.slice(dotIndex) : "";
+
+    let candidate = base + ext;
     let counter = 1;
 
-    while (existingFileNames.includes(newName)) {
-      newName = `${name}${counter}.${ext}`;
+    while (existingFileNames.includes(candidate)) {
+      candidate = `${base}${counter}${ext}`;
       counter++;
     }
 
-    return newName;
+    return candidate;
   };
 
   const handleSaveNote = () => {
-    const uniqueFileName = generateUniqueFileName(noteName);
-    const fileBlob = new Blob([noteText], { type: "text/plain" });
-    const file = new File([fileBlob], uniqueFileName, { type: "text/plain" });
+    if (!noteText.trim()) return;
+
+    const uniqueName = generateUniqueFileName(noteName);
+    const file = new File([noteText], uniqueName, { type: "text/plain" });
+
     uploadEnqueue({ file, basedir: cwd });
     onUpload(); // Refresh file list
     setOpen(false);
