@@ -10,7 +10,7 @@ import {
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import { useUploadEnqueue } from "./app/transferQueue";
-import { fetchPath } from "./app/transfer"; // Already in Main.tsx
+import { fetchPath } from "./app/transfer";
 
 interface TextPadDrawerProps {
   open: boolean;
@@ -30,7 +30,6 @@ const TextPadDrawer: React.FC<TextPadDrawerProps> = ({
   const [existingFileNames, setExistingFileNames] = useState<string[]>([]);
   const uploadEnqueue = useUploadEnqueue();
 
-  // Fetch existing file names on open
   useEffect(() => {
     if (open) {
       fetchPath(cwd).then((files) => {
@@ -64,7 +63,7 @@ const TextPadDrawer: React.FC<TextPadDrawerProps> = ({
     const file = new File([noteText], uniqueName, { type: "text/plain" });
 
     uploadEnqueue({ file, basedir: cwd });
-    onUpload(); // Refresh file list
+    onUpload();
     setOpen(false);
     setNoteText("");
     setNoteName("note.txt");
