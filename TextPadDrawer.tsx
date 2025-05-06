@@ -27,39 +27,43 @@ const TextPadDrawer: React.FC<TextPadDrawerProps> = ({
 }) => {
   const [noteText, setNoteText] = useState("");
   const [noteName, setNoteName] = useState("note.txt");
-  const [existingFileNames, setExistingFileNames] = useState<string[]>([]);
+  const [existingNames, setExistingNames] = useState<string[]>([]);
   const uploadEnqueue = useUploadEnqueue();
 
   useEffect(() => {
     if (open) {
       fetchPath(cwd).then((files) => {
-        const names = files.map((file) => file.key.split("/").pop()?.toLowerCase() || "");
-        setExistingFileNames(names);
+        const names = files.map((f) => f.key.split("/").pop()?.toLowerCase() || "");
+        setExistingNames(names);
       });
     }
   }, [open, cwd]);
 
-  const generateUniqueFileName = (baseName: string): string => {
-    const lowerBaseName = baseName.toLowerCase();
-    const dotIndex = lowerBaseName.lastIndexOf(".");
-    const base = dotIndex !== -1 ? lowerBaseName.slice(0, dotIndex) : lowerBaseName;
-    const ext = dotIndex !== -1 ? lowerBaseName.slice(dotIndex) : "";
+  const getUniqueName = (filename: string): string => {
+    const dotIndex = filename.lastIndexOf(".");
+    const base = dotIndex !== -1 ? filename.slice(0, dotIndex) : filename;
+    const ext = dotIndex !== -1 ? filename.slice(dotIndex) : ".txt";
 
-    let candidate = base + ext;
+    let currentName = filename.toLowerCase();
     let counter = 1;
 
-    while (existingFileNames.includes(candidate)) {
-      candidate = `${base}${counter}${ext}`;
-      counter++;
+    if (!existingNames.includes(currentName)) {
+      return filename;
     }
 
-    return candidate;
+    while (true) {
+      const newName = `${base}${counter}${ext}`;
+      if (!existingNames.includes(newName.toLowerCase())) {
+        return newName;
+      }
+      counter++;
+    }
   };
 
   const handleSaveNote = () => {
     if (!noteText.trim()) return;
 
-    const uniqueName = generateUniqueFileName(noteName);
+    const uniqueName = getUniqueName(noteName);
     const file = new File([noteText], uniqueName, { type: "text/plain" });
 
     uploadEnqueue({ file, basedir: cwd });
@@ -71,8 +75,8 @@ const TextPadDrawer: React.FC<TextPadDrawerProps> = ({
 
   return (
     <Drawer anchor="right" open={open} onClose={() => setOpen(false)}>
-      <Box sx={{ width: 400, padding: 2, display: "flex", flexDirection: "column", height: "100%" }}>
-        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+      <Box sx={{ width: 400, p: 3 }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
           <Typography variant="h6">TextPad</Typography>
           <IconButton onClick={() => setOpen(false)}>
             <CloseIcon />
@@ -88,10 +92,9 @@ const TextPadDrawer: React.FC<TextPadDrawerProps> = ({
         />
 
         <TextField
-          label="Write your note..."
+          label="Write your note"
           multiline
-          rows={15}
-          variant="outlined"
+          rows={10}
           value={noteText}
           onChange={(e) => setNoteText(e.target.value)}
           fullWidth
@@ -99,11 +102,12 @@ const TextPadDrawer: React.FC<TextPadDrawerProps> = ({
 
         <Button
           variant="contained"
+          fullWidth
           sx={{ mt: 2 }}
           onClick={handleSaveNote}
           disabled={!noteText.trim()}
         >
-          Save & Upload Note
+          Save & Upload
         </Button>
       </Box>
     </Drawer>
