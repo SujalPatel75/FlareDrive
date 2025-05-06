@@ -1,13 +1,19 @@
 import React, { forwardRef, useCallback, useMemo } from "react";
-
-import { Button, Card, Drawer, Fab, Grid, Typography } from "@mui/material";
+import {
+  Button,
+  Card,
+  Drawer,
+  Fab,
+  Grid,
+  Typography,
+} from "@mui/material";
 import {
   Camera as CameraIcon,
   CreateNewFolder as CreateNewFolderIcon,
   Image as ImageIcon,
   Upload as UploadIcon,
 } from "@mui/icons-material";
-import { createFolder } from "./app/transfer";
+import { createFolder, fetchPath } from "./app/transfer";
 import { useUploadEnqueue } from "./app/transferQueue";
 
 function IconCaptionButton({
@@ -67,10 +73,28 @@ function UploadDrawer({
 }) {
   const uploadEnqueue = useUploadEnqueue();
 
+  const getUniqueFileName = async (filename: string, existing: string[]): Promise<string> => {
+    if (!existing.includes(filename)) return filename;
+
+    const extIndex = filename.lastIndexOf(".");
+    const base = extIndex === -1 ? filename : filename.slice(0, extIndex);
+    const ext = extIndex === -1 ? "" : filename.slice(extIndex);
+    let counter = 1;
+    let newName = `${base}${counter}${ext}`;
+
+    while (existing.includes(newName)) {
+      counter++;
+      newName = `${base}${counter}${ext}`;
+    }
+
+    return newName;
+  };
+
   const handleUpload = useCallback(
-    (action: string) => () => {
+    (action: string) => async () => {
       const input = document.createElement("input");
       input.type = "file";
+
       switch (action) {
         case "photo":
           input.accept = "image/*";
@@ -83,14 +107,30 @@ function UploadDrawer({
           input.accept = "*/*";
           break;
       }
+
       input.multiple = true;
+
       input.onchange = async () => {
         if (!input.files) return;
-        const files = Array.from(input.files);
+
+        const existingFiles = (await fetchPath(cwd)).map((f) => f.key.split("/").pop()!);
+        const files: File[] = [];
+
+        for (const file of Array.from(input.files)) {
+          const uniqueName = await getUniqueFileName(file.name, existingFiles);
+          if (uniqueName !== file.name) {
+            const renamedFile = new File([file], uniqueName, { type: file.type });
+            files.push(renamedFile);
+          } else {
+            files.push(file);
+          }
+        }
+
         uploadEnqueue(...files.map((file) => ({ file, basedir: cwd })));
         setOpen(false);
         onUpload();
       };
+
       input.click();
     },
     [cwd, onUpload, setOpen, uploadEnqueue]
