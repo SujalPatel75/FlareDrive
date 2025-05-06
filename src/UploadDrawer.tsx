@@ -108,10 +108,11 @@ function UploadDrawer({
           const ext = extIndex === -1 ? "" : filename.slice(extIndex);
 
           let counter = 1;
-          let newName = `${base}${counter}${ext}`;
+          let newName = `${base} (${counter})${ext}`;
+          
           while (existing.includes(newName)) {
             counter++;
-            newName = `${base}${counter}${ext}`;
+            newName = `${base} (${counter})${ext}`;
           }
 
           return newName;
@@ -121,12 +122,9 @@ function UploadDrawer({
 
         for (const file of Array.from(input.files)) {
           const uniqueName = getUniqueFileName(file.name, existingFiles);
-          if (uniqueName !== file.name) {
-            const renamedFile = new File([file], uniqueName, { type: file.type });
-            files.push(renamedFile);
-          } else {
-            files.push(file);
-          }
+          const renamedFile = new File([file], uniqueName, { type: file.type });
+          files.push(renamedFile);
+          existingFiles.push(uniqueName);
         }
 
         uploadEnqueue(...files.map((file) => ({ file, basedir: cwd })));
